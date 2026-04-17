@@ -1,0 +1,41 @@
+Model,Comparison,MAPE_A,MAPE_B,W_statistic,p_value,Significance,Cohen_d,Effect_size,Winner
+arima,Top-30 vs All-118,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Top-30 vs Top-20,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Top-30 vs Zabin-22,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Top-20 vs Zabin-22,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Top-50 vs All-118,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Top-10 vs Lag-only,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Lag-only vs Zabin-22,,,0.0,1.0,ns,0.0,negligible,tie
+arima,Calendar-only vs Lag-only,,,0.0,1.0,ns,0.0,negligible,tie
+LightGBM,Top-30 vs All-118,1.6463,1.5117,4.0,0.0137,*,0.1956,negligible,all
+LightGBM,Top-30 vs Top-20,1.6463,3.231,0.0,0.002,**,1.1273,large,top_30
+LightGBM,Top-30 vs Zabin-22,1.6463,4.048,0.0,0.002,**,1.4272,large,top_30
+LightGBM,Top-20 vs Zabin-22,3.231,4.048,0.0,0.002,**,0.3918,small,top_20
+LightGBM,Top-50 vs All-118,1.6373,1.5117,1.0,0.0039,**,0.1762,negligible,all
+LightGBM,Top-10 vs Lag-only,3.3801,3.7385,0.0,0.002,**,0.182,negligible,top_10
+LightGBM,Lag-only vs Zabin-22,3.7385,4.048,5.0,0.0195,*,0.1444,negligible,lag_only
+LightGBM,Calendar-only vs Lag-only,15.6607,3.7385,0.0,0.002,**,3.8932,large,lag_only
+lstm,Top-30 vs All-118,4.0858,4.1675,19.0,0.4316,ns,0.0416,negligible,no significant difference
+lstm,Top-30 vs Top-20,4.0858,4.1292,20.0,0.8203,ns,0.0224,negligible,no significant difference
+lstm,Top-30 vs Zabin-22,4.0858,3.9475,27.0,1.0,ns,0.0696,negligible,no significant difference
+lstm,Top-20 vs Zabin-22,4.1292,3.9475,26.5,0.9414,ns,0.0912,negligible,no significant difference
+lstm,Top-50 vs All-118,3.9334,4.1675,10.0,0.084,ns,0.1175,negligible,no significant difference
+lstm,Top-10 vs Lag-only,3.8104,3.9348,15.0,0.2324,ns,0.0648,negligible,no significant difference
+lstm,Lag-only vs Zabin-22,3.9348,3.9475,26.0,0.9219,ns,0.0064,negligible,no significant difference
+lstm,Calendar-only vs Lag-only,3.9914,3.9348,25.0,0.8457,ns,0.028,negligible,no significant difference
+RandomForest,Top-30 vs All-118,2.5411,2.532,24.0,0.7695,ns,0.0081,negligible,no significant difference
+RandomForest,Top-30 vs Top-20,2.5411,3.285,1.0,0.0039,**,0.447,small,top_30
+RandomForest,Top-30 vs Zabin-22,2.5411,4.67,0.0,0.002,**,1.0325,large,top_30
+RandomForest,Top-20 vs Zabin-22,3.285,4.67,0.0,0.002,**,0.5835,medium,top_20
+RandomForest,Top-50 vs All-118,2.3279,2.532,0.0,0.002,**,0.1965,negligible,top_50
+RandomForest,Top-10 vs Lag-only,3.2355,3.8862,0.0,0.002,**,0.3175,small,top_10
+RandomForest,Lag-only vs Zabin-22,3.8862,4.67,0.0,0.002,**,0.3264,small,lag_only
+RandomForest,Calendar-only vs Lag-only,16.271,3.8862,0.0,0.002,**,4.2541,large,lag_only
+XGBoost,Top-30 vs All-118,1.7682,1.5421,1.0,0.0039,**,0.3223,small,all
+XGBoost,Top-30 vs Top-20,1.7682,3.3366,0.0,0.002,**,1.0998,large,top_30
+XGBoost,Top-30 vs Zabin-22,1.7682,4.2705,0.0,0.002,**,1.4786,large,top_30
+XGBoost,Top-20 vs Zabin-22,3.3366,4.2705,0.0,0.002,**,0.4444,small,top_20
+XGBoost,Top-50 vs All-118,1.6918,1.5421,6.0,0.0273,*,0.2102,small,all
+XGBoost,Top-10 vs Lag-only,3.5306,3.9123,0.0,0.002,**,0.1902,negligible,top_10
+XGBoost,Lag-only vs Zabin-22,3.9123,4.2705,4.0,0.0137,*,0.1663,negligible,lag_only
+XGBoost,Calendar-only vs Lag-only,15.7339,3.9123,0.0,0.002,**,3.6443,large,lag_only

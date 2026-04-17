@@ -1,0 +1,9 @@
+statistic,p_value,significant,effect_size,winner,name1,name2,n_folds,comparison_label,model,cohen_d,effect_interp
+0.0,1.0,False,0.0,tie,top_30,all,10,Top-30 vs All-118,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,top_30,top_20,10,Top-30 vs Top-20,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,top_30,zabin_22,10,Top-30 vs Zabin-22,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,top_20,zabin_22,10,Top-20 vs Zabin-22,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,top_50,all,10,Top-50 vs All-118,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,top_10,lag_only,10,Top-10 vs Lag-only,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,lag_only,zabin_22,10,Lag-only vs Zabin-22,arima,0.0,negligible
+0.0,1.0,False,0.0,tie,calendar_only,lag_only,10,Calendar-only vs Lag-only,arima,0.0,negligible

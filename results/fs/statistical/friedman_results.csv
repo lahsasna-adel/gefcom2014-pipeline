@@ -1,0 +1,6 @@
+statistic,p_value,significant,n_groups,n_folds,df,model
+,,False,9,10,8,arima
+77.36,0.0,True,9,10,8,LightGBM
+8.1736,0.416697,False,9,10,8,lstm
+71.8133,0.0,True,9,10,8,RandomForest
+77.8048,0.0,True,9,10,8,XGBoost

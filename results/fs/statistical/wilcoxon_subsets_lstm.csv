@@ -1,0 +1,9 @@
+name1,name2,mean_mape1,mean_mape2,statistic,p_value,significant,effect_size,winner,n_folds,comparison_label,model,cohen_d,effect_interp
+top_30,all,4.0858,4.1675,19.0,0.4316,False,0.3091,no significant difference,10,Top-30 vs All-118,lstm,0.0416,negligible
+top_30,top_20,4.0858,4.1292,20.0,0.8203,False,0.2727,no significant difference,10,Top-30 vs Top-20,lstm,0.0224,negligible
+top_30,zabin_22,4.0858,3.9475,27.0,1.0,False,0.0182,no significant difference,10,Top-30 vs Zabin-22,lstm,0.0696,negligible
+top_20,zabin_22,4.1292,3.9475,26.5,0.9414,False,0.0364,no significant difference,10,Top-20 vs Zabin-22,lstm,0.0912,negligible
+top_50,all,3.9334,4.1675,10.0,0.084,False,0.6364,no significant difference,10,Top-50 vs All-118,lstm,0.1175,negligible
+top_10,lag_only,3.8104,3.9348,15.0,0.2324,False,0.4545,no significant difference,10,Top-10 vs Lag-only,lstm,0.0648,negligible
+lag_only,zabin_22,3.9348,3.9475,26.0,0.9219,False,0.0545,no significant difference,10,Lag-only vs Zabin-22,lstm,0.0064,negligible
+calendar_only,lag_only,3.9914,3.9348,25.0,0.8457,False,0.0909,no significant difference,10,Calendar-only vs Lag-only,lstm,0.028,negligible

@@ -1,0 +1,9 @@
+,all,lag_only,top_10,top_20,top_30,top_5,top_50,zabin_22
+all,—,***,***,**,ns,***,ns,***
+lag_only,***,—,ns,**,***,ns,***,ns
+top_10,***,ns,—,ns,ns,ns,**,**
+top_20,**,**,ns,—,ns,*,ns,***
+top_30,ns,***,ns,ns,—,**,ns,***
+top_5,***,ns,ns,*,**,—,***,ns
+top_50,ns,***,**,ns,ns,***,—,***
+zabin_22,***,ns,**,***,***,ns,***,—

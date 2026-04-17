@@ -1,0 +1,9 @@
+name1,name2,mean_mape1,mean_mape2,statistic,p_value,significant,effect_size,winner,n_folds,comparison_label,model,cohen_d,effect_interp
+top_30,all,1.7682,1.5421,1.0,0.0039,True,0.9636,all,10,Top-30 vs All-118,XGBoost,0.3223,small
+top_30,top_20,1.7682,3.3366,0.0,0.002,True,1.0,top_30,10,Top-30 vs Top-20,XGBoost,1.0998,large
+top_30,zabin_22,1.7682,4.2705,0.0,0.002,True,1.0,top_30,10,Top-30 vs Zabin-22,XGBoost,1.4786,large
+top_20,zabin_22,3.3366,4.2705,0.0,0.002,True,1.0,top_20,10,Top-20 vs Zabin-22,XGBoost,0.4444,small
+top_50,all,1.6918,1.5421,6.0,0.0273,True,0.7818,all,10,Top-50 vs All-118,XGBoost,0.2102,small
+top_10,lag_only,3.5306,3.9123,0.0,0.002,True,1.0,top_10,10,Top-10 vs Lag-only,XGBoost,0.1902,negligible
+lag_only,zabin_22,3.9123,4.2705,4.0,0.0137,True,0.8545,lag_only,10,Lag-only vs Zabin-22,XGBoost,0.1663,negligible
+calendar_only,lag_only,15.7339,3.9123,0.0,0.002,True,1.0,lag_only,10,Calendar-only vs Lag-only,XGBoost,3.6443,large

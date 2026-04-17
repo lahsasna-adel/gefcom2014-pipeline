@@ -1,0 +1,31 @@
+name1,name2,mean_mape1,mean_mape2,statistic,p_value,significant,effect_size,winner,n_folds,subset,cohen_d,effect_interp
+arima,LightGBM,56.8808,1.6463,0.0,0.002,True,1.0,LightGBM,10,top_30,3.5334,large
+arima,lstm,56.8808,4.0858,0.0,0.002,True,1.0,lstm,10,top_30,3.3661,large
+arima,RandomForest,56.8808,2.5411,0.0,0.002,True,1.0,RandomForest,10,top_30,3.4729,large
+arima,XGBoost,56.8808,1.7682,0.0,0.002,True,1.0,XGBoost,10,top_30,3.5256,large
+LightGBM,lstm,1.6463,4.0858,0.0,0.002,True,1.0,LightGBM,10,top_30,1.6864,large
+LightGBM,RandomForest,1.6463,2.5411,0.0,0.002,True,1.0,LightGBM,10,top_30,0.9313,large
+LightGBM,XGBoost,1.6463,1.7682,0.0,0.002,True,1.0,LightGBM,10,top_30,0.1778,negligible
+lstm,RandomForest,4.0858,2.5411,0.0,0.002,True,1.0,RandomForest,10,top_30,0.966,large
+lstm,XGBoost,4.0858,1.7682,0.0,0.002,True,1.0,XGBoost,10,top_30,1.5979,large
+RandomForest,XGBoost,2.5411,1.7682,0.0,0.002,True,1.0,XGBoost,10,top_30,0.7997,medium
+arima,LightGBM,56.8808,1.5117,0.0,0.002,True,1.0,LightGBM,10,all,3.5419,large
+arima,lstm,56.8808,4.1675,0.0,0.002,True,1.0,lstm,10,all,3.36,large
+arima,RandomForest,56.8808,2.532,0.0,0.002,True,1.0,RandomForest,10,all,3.4744,large
+arima,XGBoost,56.8808,1.5421,0.0,0.002,True,1.0,XGBoost,10,all,3.5399,large
+LightGBM,lstm,1.5117,4.1675,0.0,0.002,True,1.0,LightGBM,10,all,1.7736,large
+LightGBM,RandomForest,1.5117,2.532,0.0,0.002,True,1.0,LightGBM,10,all,1.1358,large
+LightGBM,XGBoost,1.5117,1.5421,9.0,0.0645,False,0.6727,no significant difference,10,all,0.0432,negligible
+lstm,RandomForest,4.1675,2.532,0.0,0.002,True,1.0,RandomForest,10,all,1.022,large
+lstm,XGBoost,4.1675,1.5421,0.0,0.002,True,1.0,XGBoost,10,all,1.7503,large
+RandomForest,XGBoost,2.532,1.5421,0.0,0.002,True,1.0,XGBoost,10,all,1.0968,large
+arima,LightGBM,56.8808,4.048,0.0,0.002,True,1.0,LightGBM,10,zabin_22,3.3635,large
+arima,lstm,56.8808,3.9475,0.0,0.002,True,1.0,lstm,10,zabin_22,3.3735,large
+arima,RandomForest,56.8808,4.67,0.0,0.002,True,1.0,RandomForest,10,zabin_22,3.3175,large
+arima,XGBoost,56.8808,4.2705,0.0,0.002,True,1.0,XGBoost,10,zabin_22,3.3492,large
+LightGBM,lstm,4.048,3.9475,20.0,0.4922,False,0.2727,no significant difference,10,zabin_22,0.0464,negligible
+LightGBM,RandomForest,4.048,4.67,0.0,0.002,True,1.0,LightGBM,10,zabin_22,0.2506,small
+LightGBM,XGBoost,4.048,4.2705,0.0,0.002,True,1.0,LightGBM,10,zabin_22,0.0973,negligible
+lstm,RandomForest,3.9475,4.67,2.0,0.0059,True,0.9273,lstm,10,zabin_22,0.3043,small
+lstm,XGBoost,3.9475,4.2705,8.0,0.0488,True,0.7091,lstm,10,zabin_22,0.1489,negligible
+RandomForest,XGBoost,4.67,4.2705,3.0,0.0098,True,0.8909,XGBoost,10,zabin_22,0.1607,negligible
