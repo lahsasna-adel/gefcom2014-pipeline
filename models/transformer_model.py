@@ -257,8 +257,10 @@ class TransformerForecaster:
     def fit(self, raw_train: np.ndarray):
         t0 = time.time()
 
-        self.mu_    = raw_train.mean()
-        self.sigma_ = raw_train.std()
+        # Store as float32 — prevents float64 upcasting in _scale()
+        # when contexts built in predict_batch() are float32 arrays.
+        self.mu_    = np.float32(raw_train.mean())
+        self.sigma_ = np.float32(raw_train.std())
         series      = self._scale(raw_train).astype(np.float32)
 
         X, y = _make_sequences(series, self.lookback, self.horizon)
@@ -350,3 +352,34 @@ class TransformerForecaster:
         with torch.no_grad():
             pred = self.model_(xb, dec_x)[0, 0].item()
         return float(self._unscale(pred))
+
+    def predict_batch(self, raw: np.ndarray,
+                      raw_split: int, n: int,
+                      chunk: int = 512) -> np.ndarray:
+        """
+        Batched GPU inference — replaces the per-step loop in the runner.
+        See InformerForecaster.predict_batch for full documentation.
+        """
+        contexts = np.empty((n, self.lookback), dtype=np.float32)
+        for i in range(n):
+            start = max(0, raw_split + i - self.lookback)
+            ctx   = raw[start: raw_split + i].astype(np.float32)
+            if len(ctx) < self.lookback:
+                pad = np.full(self.lookback - len(ctx), ctx[0], dtype=np.float32)
+                ctx = np.concatenate([pad, ctx])
+            contexts[i] = self._scale(ctx[-self.lookback:])
+
+        self.model_.eval()
+        preds = np.empty(n, dtype=np.float32)
+
+        with torch.no_grad():
+            for start in range(0, n, chunk):
+                end   = min(start + chunk, n)
+                xb    = torch.from_numpy(contexts[start:end]
+                                         ).unsqueeze(-1).to(self.device)
+                dec_x = torch.zeros(end - start, self.horizon, 1,
+                                    device=self.device)
+                out   = self.model_(xb, dec_x)[:, 0].cpu().numpy()
+                preds[start:end] = self._unscale(out)
+
+        return preds

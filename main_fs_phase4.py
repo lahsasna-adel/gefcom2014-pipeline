@@ -225,8 +225,9 @@ def _run_informer(raw_train, raw_test, raw_split, raw):
     to identify dominant query positions. The generative decoder predicts
     the full 24h horizon in one forward pass (no autoregressive rollout).
 
-    Hyperparameters are conservative for stability on GEFCom2014 scale:
-      d_model=64, n_heads=4, d_ff=256, n_enc_layers=2, epochs=30.
+    Prediction uses predict_batch() — all 2,920 test steps are processed
+    in a single batched GPU pass (chunk=512), eliminating the Python-loop
+    overhead that made CPU inference prohibitively slow (~644 min/run).
     """
     from models.informer_model import InformerForecaster
     lookback = 168
@@ -237,10 +238,7 @@ def _run_informer(raw_train, raw_test, raw_split, raw):
         batch_size=64, lr=1e-3,
     )
     m.fit(raw_train)
-    preds = np.array([
-        m._predict_one(raw[max(0, raw_split + i - lookback): raw_split + i])
-        for i in range(len(raw_test))
-    ])
+    preds = m.predict_batch(raw, raw_split, len(raw_test))
     return evaluate(raw_test, preds, "Informer", train_time_s=m.train_time_)
 
 
@@ -251,6 +249,7 @@ def _run_transformer(raw_train, raw_test, raw_split, raw):
     Identical hyperparameters to Informer (d_model=64, lookback=168h)
     to serve as a clean ablation baseline: isolates the effect of
     ProbSparse attention + distilling vs standard self-attention.
+    Uses predict_batch() for GPU-optimised inference.
     """
     from models.transformer_model import TransformerForecaster
     lookback = 168
@@ -262,10 +261,7 @@ def _run_transformer(raw_train, raw_test, raw_split, raw):
         batch_size=64, lr=1e-3,
     )
     m.fit(raw_train)
-    preds = np.array([
-        m._predict_one(raw[max(0, raw_split + i - lookback): raw_split + i])
-        for i in range(len(raw_test))
-    ])
+    preds = m.predict_batch(raw, raw_split, len(raw_test))
     return evaluate(raw_test, preds, "Transformer", train_time_s=m.train_time_)
 
 
@@ -277,9 +273,7 @@ def _run_nbeats(raw_train, raw_test, raw_split, raw):
     → Generic (16 learnable basis functions).
 
     lookback=168h (7× horizon) follows Oreshkin et al.'s recommendation of
-    2–7× horizon. No attention, no recurrence: faster per epoch than
-    Informer/Transformer. Uses CosineAnnealingLR scheduler and 50 epochs
-    to allow the residual stack to converge gradually.
+    2–7× horizon. Uses predict_batch() for GPU-optimised inference.
     """
     from models.nbeats_model import NBeatsForecaster
     lookback = 168
@@ -293,10 +287,7 @@ def _run_nbeats(raw_train, raw_test, raw_split, raw):
         batch_size=128, lr=1e-3,
     )
     m.fit(raw_train)
-    preds = np.array([
-        m._predict_one(raw[max(0, raw_split + i - lookback): raw_split + i])
-        for i in range(len(raw_test))
-    ])
+    preds = m.predict_batch(raw, raw_split, len(raw_test))
     return evaluate(raw_test, preds, "N-BEATS", train_time_s=m.train_time_)
 
 
