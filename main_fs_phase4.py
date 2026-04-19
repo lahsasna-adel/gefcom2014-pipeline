@@ -364,6 +364,62 @@ def _run_nbeats_mv(X_tr, y_train, X_te, y_test, raw_train, raw_test,
     return evaluate(raw_test, preds, "N-BEATS-MV", train_time_s=m.train_time_)
 
 
+# ─── Phase 4c: Larger-capacity MV variants ───────────────────────────────────
+
+def _run_informer_mv2(X_tr, y_train, X_te, y_test, raw_train, raw_test,
+                      raw_split, raw):
+    """
+    Informer-MV v2 — doubled capacity to handle multivariate input.
+
+    Motivation: Informer-MV v1 (d_model=64, epochs=30) performed worse than
+    its univariate counterpart because the attention mechanism lacked capacity
+    to jointly learn temporal AND cross-feature dependencies from 1+F input
+    channels. This variant addresses that with:
+      - d_model  : 64  → 128  (2× embedding dimension)
+      - d_ff     : 256 → 512  (maintains 4× d_model ratio)
+      - epochs   : 30  → 50   (more training budget for the larger model)
+      - batch_size: 64 → 32   (smaller batches to fit larger model in VRAM)
+    """
+    from models.informer_mv_model import InformerMVForecaster
+    m = InformerMVForecaster(
+        lookback=168, horizon=24,
+        d_model=128, n_heads=4, d_ff=512,
+        n_enc_layers=2, epochs=50, patience=7,
+        batch_size=32, lr=5e-4,
+    )
+    m.fit(X_tr, y_train, raw_train)
+    preds = m.predict_batch(X_te, raw, raw_split, len(raw_test))
+    return evaluate(raw_test, preds, "Informer-MV2", train_time_s=m.train_time_)
+
+
+def _run_transformer_mv2(X_tr, y_train, X_te, y_test, raw_train, raw_test,
+                         raw_split, raw):
+    """
+    Transformer-MV v2 — doubled capacity to handle multivariate input.
+
+    Same motivation and capacity changes as Informer-MV v2:
+      - d_model   : 64  → 128
+      - d_ff      : 256 → 512
+      - epochs    : 30  → 50
+      - batch_size: 64  → 32
+      - lr        : 1e-3 → 5e-4 (lower LR for larger model stability)
+
+    Ablation pair with Informer-MV2: isolates ProbSparse + distilling vs
+    full O(L²) attention at the higher capacity level.
+    """
+    from models.transformer_mv_model import TransformerMVForecaster
+    m = TransformerMVForecaster(
+        lookback=168, horizon=24,
+        d_model=128, n_heads=4, d_ff=512,
+        n_enc_layers=2, n_dec_layers=1,
+        epochs=50, patience=7,
+        batch_size=32, lr=5e-4,
+    )
+    m.fit(X_tr, y_train, raw_train)
+    preds = m.predict_batch(X_te, raw, raw_split, len(raw_test))
+    return evaluate(raw_test, preds, "Transformer-MV2", train_time_s=m.train_time_)
+
+
 def _run_arima(raw_train, raw_test):
     from models.sarima_model import SARIMAForecaster
     m = SARIMAForecaster(seasonal_period=24,
@@ -810,6 +866,14 @@ def run_model_on_subset(X_train, y_train, X_test, y_test,
                                                 X_tr, y_train, X_te, y_test,
                                                 raw_train, raw_test, raw_split, raw)
 
+        # ── Phase-4c: Higher-capacity MV variants ────────────────────────────
+        elif model_key == "informer_mv2":    return _run_informer_mv2(
+                                                X_tr, y_train, X_te, y_test,
+                                                raw_train, raw_test, raw_split, raw)
+        elif model_key == "transformer_mv2": return _run_transformer_mv2(
+                                                X_tr, y_train, X_te, y_test,
+                                                raw_train, raw_test, raw_split, raw)
+
         else:
             raise ValueError(f"Unknown model key: '{model_key}'")
 
@@ -1133,6 +1197,9 @@ _MODEL_COLORS = {
     "informer_mv":    "#a21caf",   # deep fuchsia
     "transformer_mv": "#0369a1",   # deep sky blue
     "nbeats_mv":      "#15803d",   # deep green
+    # Phase 4c — higher-capacity MV variants (gold tones to signal upgrade)
+    "informer_mv2":    "#b45309",  # amber-brown
+    "transformer_mv2": "#1e3a5f",  # navy
 }
 
 
@@ -1266,7 +1333,8 @@ def main():
                   "rnn","gru","cnn",
                   "gbm","catboost","cart",
                   "informer","transformer","nbeats",           # Phase 4
-                  "informer_mv","transformer_mv","nbeats_mv"}  # Phase 4b
+                  "informer_mv","transformer_mv","nbeats_mv",  # Phase 4b
+                  "informer_mv2","transformer_mv2"}            # Phase 4c
     unknown = set(args.models) - valid_keys
     if unknown:
         raise ValueError(f"Unknown model keys: {unknown}. "
