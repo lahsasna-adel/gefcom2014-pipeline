@@ -26,13 +26,13 @@ New models added (Phase 2):
   gru      — Gated Recurrent Unit (lookback=48h)
   cnn      — 1D CNN with dilated causal convolutions (lookback=48h)
 
-New models added (Phase 4 — Advanced Deep Learning):
-  informer    — Informer (Zhou et al., 2021): ProbSparse attention + distilling
-                O(L log L) encoder, generative decoder. lookback=168h.
-  transformer — Vanilla Transformer (Vaswani et al., 2017): full O(L²) attention.
-                Ablation baseline for Informer. lookback=168h.
-  nbeats      — N-BEATS (Oreshkin et al., 2020): doubly-residual stacking with
-                trend / seasonality / generic basis expansion. lookback=168h.
+New models added (Phase 4b — Multivariate Deep Learning):
+  informer_mv    — Informer with full feature matrix (demand + F engineered features
+                   as encoder input). Fair comparison with gradient boosting.
+  transformer_mv — Vanilla Transformer with full feature matrix (same ablation
+                   structure as univariate pair).
+  nbeats_mv      — N-BEATS with FiLM feature conditioning: engineered features
+                   modulate each block via learned affine transform (γ·x + β).
 
 Notes on univariate models (arima / ets / naive / lstm):
   These models ignore the feature matrix — they operate on the raw demand
@@ -101,6 +101,10 @@ from utils.metrics                   import evaluate
 # Univariate models are subset-independent — run once per fold, copy across subsets.
 UNIVARIATE_MODELS = {"arima", "ets", "naive", "lstm", "rnn", "gru", "cnn",
                      "informer", "transformer", "nbeats"}   # Phase 4
+
+# Phase 4b multivariate models — feature-sensitive (NOT in UNIVARIATE_MODELS)
+# They run across all subsets like LightGBM/XGBoost.
+MULTIVARIATE_DL_MODELS = {"informer_mv", "transformer_mv", "nbeats_mv"}
 
 # Representative subset to actually run for univariate models
 UNIVARIATE_ANCHOR_SUBSET = "all"
@@ -289,6 +293,75 @@ def _run_nbeats(raw_train, raw_test, raw_split, raw):
     m.fit(raw_train)
     preds = m.predict_batch(raw, raw_split, len(raw_test))
     return evaluate(raw_test, preds, "N-BEATS", train_time_s=m.train_time_)
+
+
+# ─── Phase 4b: Multivariate Deep Learning runners ────────────────────────────
+
+def _run_informer_mv(X_tr, y_train, X_te, y_test, raw_train, raw_test,
+                     raw_split, raw):
+    """
+    Informer-MV — ProbSparse attention with full engineered feature matrix.
+
+    Encoder input: demand series + F features at each timestep → (B, L, 1+F).
+    This gives the model the same information as LightGBM/XGBoost, making
+    the comparison with gradient boosting methods fair.
+    """
+    from models.informer_mv_model import InformerMVForecaster
+    m = InformerMVForecaster(
+        lookback=168, horizon=24,
+        d_model=64, n_heads=4, d_ff=256,
+        n_enc_layers=2, epochs=30, patience=5,
+        batch_size=64, lr=1e-3,
+    )
+    m.fit(X_tr, y_train, raw_train)
+    preds = m.predict_batch(X_te, raw, raw_split, len(raw_test))
+    return evaluate(raw_test, preds, "Informer-MV", train_time_s=m.train_time_)
+
+
+def _run_transformer_mv(X_tr, y_train, X_te, y_test, raw_train, raw_test,
+                        raw_split, raw):
+    """
+    Transformer-MV — full O(L²) attention with engineered feature matrix.
+
+    Ablation of Informer-MV: isolates ProbSparse + distilling vs full
+    attention when both models have access to the same feature set.
+    """
+    from models.transformer_mv_model import TransformerMVForecaster
+    m = TransformerMVForecaster(
+        lookback=168, horizon=24,
+        d_model=64, n_heads=4, d_ff=256,
+        n_enc_layers=2, n_dec_layers=1,
+        epochs=30, patience=5,
+        batch_size=64, lr=1e-3,
+    )
+    m.fit(X_tr, y_train, raw_train)
+    preds = m.predict_batch(X_te, raw, raw_split, len(raw_test))
+    return evaluate(raw_test, preds, "Transformer-MV", train_time_s=m.train_time_)
+
+
+def _run_nbeats_mv(X_tr, y_train, X_te, y_test, raw_train, raw_test,
+                   raw_split, raw):
+    """
+    N-BEATS-MV — doubly-residual basis expansion with FiLM feature conditioning.
+
+    Features modulate each block's input via learned affine transform:
+        h_input = γ(mean(X_features)) ⊙ x + β(mean(X_features))
+    This preserves the N-BEATS backbone while injecting calendar, lag, and
+    meteorological context into every stack (trend / seasonality / generic).
+    """
+    from models.nbeats_mv_model import NBeatsMVForecaster
+    m = NBeatsMVForecaster(
+        lookback=168, horizon=24,
+        hidden_size=256, n_layers=4,
+        n_blocks_per_stack=3,
+        trend_degree=3, n_harmonics=12,
+        n_generic_basis=16, film_hidden=64,
+        epochs=50, patience=8,
+        batch_size=128, lr=1e-3,
+    )
+    m.fit(X_tr, y_train, raw_train)
+    preds = m.predict_batch(X_te, raw, raw_split, len(raw_test))
+    return evaluate(raw_test, preds, "N-BEATS-MV", train_time_s=m.train_time_)
 
 
 def _run_arima(raw_train, raw_test):
@@ -726,6 +799,17 @@ def run_model_on_subset(X_train, y_train, X_test, y_test,
         elif model_key == "nbeats":       return _run_nbeats(raw_train, raw_test,
                                                              raw_split, raw)
 
+        # ── Phase-4b: Multivariate Deep Learning ─────────────────────────────
+        elif model_key == "informer_mv":    return _run_informer_mv(
+                                                X_tr, y_train, X_te, y_test,
+                                                raw_train, raw_test, raw_split, raw)
+        elif model_key == "transformer_mv": return _run_transformer_mv(
+                                                X_tr, y_train, X_te, y_test,
+                                                raw_train, raw_test, raw_split, raw)
+        elif model_key == "nbeats_mv":      return _run_nbeats_mv(
+                                                X_tr, y_train, X_te, y_test,
+                                                raw_train, raw_test, raw_split, raw)
+
         else:
             raise ValueError(f"Unknown model key: '{model_key}'")
 
@@ -1042,9 +1126,13 @@ _MODEL_COLORS = {
     "ets":         "#94a3b8",
     "naive":       "#6b7280",
     # Phase 4
-    "informer":    "#e879f9",   # fuchsia
-    "transformer": "#38bdf8",   # sky blue
-    "nbeats":      "#4ade80",   # green
+    "informer":       "#e879f9",   # fuchsia
+    "transformer":    "#38bdf8",   # sky blue
+    "nbeats":         "#4ade80",   # green
+    # Phase 4b — multivariate variants (darker shades of Phase 4 colors)
+    "informer_mv":    "#a21caf",   # deep fuchsia
+    "transformer_mv": "#0369a1",   # deep sky blue
+    "nbeats_mv":      "#15803d",   # deep green
 }
 
 
@@ -1177,7 +1265,8 @@ def main():
                   "gam","ridge","lasso","enet","svr","mlp","ets","naive",
                   "rnn","gru","cnn",
                   "gbm","catboost","cart",
-                  "informer","transformer","nbeats"}   # Phase 4
+                  "informer","transformer","nbeats",           # Phase 4
+                  "informer_mv","transformer_mv","nbeats_mv"}  # Phase 4b
     unknown = set(args.models) - valid_keys
     if unknown:
         raise ValueError(f"Unknown model keys: {unknown}. "
