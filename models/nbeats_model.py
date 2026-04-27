@@ -294,7 +294,8 @@ class NBeatsForecaster:
                  trend_degree: int = 3, n_harmonics: int = 12,
                  n_generic_basis: int = 16,
                  epochs: int = 50, patience: int = 8,
-                 batch_size: int = 128, lr: float = 1e-3):
+                 batch_size: int = 128, lr: float = 1e-3,
+                 use_log_norm: bool = True):
         self.lookback           = lookback
         self.horizon            = horizon
         self.hidden_size        = hidden_size
@@ -307,24 +308,36 @@ class NBeatsForecaster:
         self.patience           = patience
         self.batch_size         = batch_size
         self.lr                 = lr
+        self.use_log_norm       = use_log_norm   # Smyl & Hua (2019): log(x/level)
 
         self.device      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_      = None
         self.mu_         = 0.0
         self.sigma_      = 1.0
+        self.level_      = 1.0
         self.train_time_ = 0.0
 
-    def _scale(self, x):   return (x - self.mu_) / (self.sigma_ + 1e-8)
-    def _unscale(self, x): return x * self.sigma_ + self.mu_
+    def _scale(self, x):
+        if self.use_log_norm:
+            return np.log(np.maximum(x, 1e-6) / (self.level_ + 1e-8)).astype(np.float32)
+        return ((x - self.mu_) / (self.sigma_ + 1e-8)).astype(np.float32)
+
+    def _unscale(self, x):
+        if self.use_log_norm:
+            return (np.exp(x) * self.level_).astype(np.float32)
+        return (x * self.sigma_ + self.mu_).astype(np.float32)
 
     def fit(self, raw_train: np.ndarray):
         t0 = time.time()
 
-        # Store as float32 — prevents float64 upcasting in _scale()
-        # when contexts built in predict_batch() are float32 arrays.
-        self.mu_    = np.float32(raw_train.mean())
-        self.sigma_ = np.float32(raw_train.std())
-        series      = self._scale(raw_train).astype(np.float32)
+        if self.use_log_norm:
+            self.level_ = np.float32(raw_train.mean())
+            print(f"        [N-BEATS] Log-norm: level={self.level_:.2f} "
+                  f"(Smyl & Hua 2019 §3.1.3)")
+        else:
+            self.mu_    = np.float32(raw_train.mean())
+            self.sigma_ = np.float32(raw_train.std())
+        series = self._scale(raw_train).astype(np.float32)
 
         X, y  = _make_sequences(series, self.lookback, self.horizon)
         n_val = max(1, int(len(X) * 0.10))

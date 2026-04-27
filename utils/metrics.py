@@ -1,138 +1,115 @@
 """
 utils/metrics.py
 ----------------
-Evaluation metrics for time-series forecasting:
-  MAE, RMSE, MAPE, SMAPE, R², MASE, Pinball loss (for quantile forecasts)
-plus a unified evaluate() function that returns a tidy dict.
+Evaluation metrics for electricity demand forecasting.
+
+Metrics returned by evaluate()
+--------------------------------
+MAE       : Mean Absolute Error (MW)
+RMSE      : Root Mean Squared Error (MW)
+MAPE      : Mean Absolute Percentage Error (%)
+R2        : Coefficient of Determination
+pcBias    : Percentage Bias (signed, %) — NEW (Smyl & Hua, 2019)
+
+pcBias definition (Smyl & Hua, 2019, Table 1)
+----------------------------------------------
+    pcBias = 100 × mean(ŷ - y) / mean(y)
+
+Interpretation:
+  pcBias > 0  → model systematically OVER-forecasts (positive bias)
+  pcBias < 0  → model systematically UNDER-forecasts (negative bias)
+  pcBias = 0  → perfectly unbiased on average
+
+This metric is operationally important for electricity grid operators:
+  - Consistent over-forecasting wastes reserve capacity
+  - Consistent under-forecasting risks grid instability
+
+In Smyl & Hua (2019):
+  - NN:  pcBias = -1.28  (under-forecasts)
+  - GBM: pcBias = +0.66  (over-forecasts)
+  - QRF: pcBias = +0.12 to +0.51 (slight over-forecast)
+  - Ensemble average cancels opposite biases → pcBias ≈ +0.03
+
+Reference
+---------
+Smyl, S., & Hua, N. G. (2019). Machine learning methods for GEFCom2017
+probabilistic load forecasting. International Journal of Forecasting,
+35(4), 1424–1431.
 """
 
 import numpy as np
-import pandas as pd
-from typing import Dict, Optional
 
 
-# ─── Individual metrics ───────────────────────────────────────────────────────
-
-def mae(actual: np.ndarray, predicted: np.ndarray) -> float:
-    """Mean Absolute Error (MW)."""
-    return float(np.mean(np.abs(actual - predicted)))
-
-
-def rmse(actual: np.ndarray, predicted: np.ndarray) -> float:
-    """Root Mean Squared Error (MW)."""
-    return float(np.sqrt(np.mean((actual - predicted) ** 2)))
-
-
-def mape(actual: np.ndarray, predicted: np.ndarray,
-         epsilon: float = 1e-8) -> float:
-    """Mean Absolute Percentage Error (%)."""
-    return float(np.mean(np.abs((actual - predicted) / (actual + epsilon))) * 100)
-
-
-def smape(actual: np.ndarray, predicted: np.ndarray,
-          epsilon: float = 1e-8) -> float:
-    """Symmetric MAPE (%) — bounded [0, 200]."""
-    denom = (np.abs(actual) + np.abs(predicted)) / 2 + epsilon
-    return float(np.mean(np.abs(actual - predicted) / denom) * 100)
-
-
-def r2_score(actual: np.ndarray, predicted: np.ndarray) -> float:
-    """Coefficient of determination R²."""
-    ss_res = np.sum((actual - predicted) ** 2)
-    ss_tot = np.sum((actual - np.mean(actual)) ** 2)
-    return float(1 - ss_res / (ss_tot + 1e-8))
-
-
-def mase(actual: np.ndarray, predicted: np.ndarray,
-         seasonal_period: int = 24) -> float:
+def evaluate(y_true: np.ndarray,
+             y_pred: np.ndarray,
+             model_name: str = "",
+             train_time_s: float = 0.0) -> dict:
     """
-    Mean Absolute Scaled Error.
-    Scales MAE by the in-sample MAE of a naive seasonal forecast.
-    """
-    naive_errors = np.abs(actual[seasonal_period:] - actual[:-seasonal_period])
-    scale = np.mean(naive_errors) + 1e-8
-    return float(np.mean(np.abs(actual - predicted)) / scale)
-
-
-def pinball_loss(actual: np.ndarray,
-                 quantile_pred: np.ndarray,
-                 quantile: float = 0.5) -> float:
-    """Pinball (quantile) loss for probabilistic forecasts."""
-    errors = actual - quantile_pred
-    return float(np.mean(np.where(errors >= 0,
-                                  quantile * errors,
-                                  (quantile - 1) * errors)))
-
-
-# ─── Unified evaluation ───────────────────────────────────────────────────────
-
-def evaluate(actual: np.ndarray,
-             predicted: np.ndarray,
-             model_name: str = "model",
-             seasonal_period: int = 24,
-             train_time_s: Optional[float] = None) -> Dict:
-    """
-    Compute all metrics and return a tidy dictionary.
+    Compute regression metrics for electricity demand forecasting.
 
     Parameters
     ----------
-    actual          : ground-truth demand values
-    predicted       : model predictions
-    model_name      : label for the model
-    seasonal_period : period for MASE (24 for hourly data)
-    train_time_s    : training time in seconds (optional)
+    y_true       : array of true demand values (MW)
+    y_pred       : array of predicted demand values (MW)
+    model_name   : label string stored in the returned dict
+    train_time_s : training time in seconds (passed through, not computed here)
 
     Returns
     -------
-    dict with keys: model, MAE, RMSE, MAPE, sMAPE, R2, MASE, [train_time_s]
+    dict with keys:
+        model_key, MAE, RMSE, MAPE, R2, pcBias, train_time_s
     """
-    actual    = np.array(actual, dtype=float)
-    predicted = np.array(predicted, dtype=float)
+    y_true = np.asarray(y_true, dtype=np.float64)
+    y_pred = np.asarray(y_pred, dtype=np.float64)
 
-    result = {
-        "model":    model_name,
-        "MAE":      round(mae(actual, predicted), 3),
-        "RMSE":     round(rmse(actual, predicted), 3),
-        "MAPE":     round(mape(actual, predicted), 3),
-        "sMAPE":    round(smape(actual, predicted), 3),
-        "R2":       round(r2_score(actual, predicted), 4),
-        "MASE":     round(mase(actual, predicted, seasonal_period), 3),
+    # ── Guard against degenerate inputs ──────────────────────────────────────
+    if len(y_true) == 0 or len(y_pred) == 0:
+        return {
+            "model_key":    model_name,
+            "MAE":          np.nan,
+            "RMSE":         np.nan,
+            "MAPE":         np.nan,
+            "R2":           np.nan,
+            "pcBias":       np.nan,
+            "train_time_s": train_time_s,
+        }
+
+    # ── Core metrics ──────────────────────────────────────────────────────────
+    residuals = y_pred - y_true                          # ŷ - y (signed)
+    abs_res   = np.abs(residuals)
+
+    mae  = float(np.mean(abs_res))
+    rmse = float(np.sqrt(np.mean(residuals ** 2)))
+
+    # MAPE: avoid division by zero on near-zero demand values
+    nonzero_mask = np.abs(y_true) > 1e-8
+    if nonzero_mask.sum() == 0:
+        mape = np.nan
+    else:
+        mape = float(
+            100.0 * np.mean(abs_res[nonzero_mask] / np.abs(y_true[nonzero_mask]))
+        )
+
+    # R² = 1 - SS_res / SS_tot
+    ss_res = float(np.sum(residuals ** 2))
+    ss_tot = float(np.sum((y_true - y_true.mean()) ** 2))
+    r2     = 1.0 - ss_res / ss_tot if ss_tot > 1e-10 else np.nan
+
+    # ── pcBias (Smyl & Hua, 2019) ─────────────────────────────────────────────
+    # pcBias = 100 × mean(ŷ - y) / mean(y)
+    # Measures systematic over/under-forecasting as a percentage of mean demand.
+    mean_y = float(np.mean(y_true))
+    if abs(mean_y) > 1e-8:
+        pc_bias = float(100.0 * np.mean(residuals) / mean_y)
+    else:
+        pc_bias = np.nan
+
+    return {
+        "model_key":    model_name,
+        "MAE":          round(mae,     4),
+        "RMSE":         round(rmse,    4),
+        "MAPE":         round(mape,    4),
+        "R2":           round(r2,      4),
+        "pcBias":       round(pc_bias, 4),   # NEW — Smyl & Hua (2019)
+        "train_time_s": round(train_time_s, 2),
     }
-    if train_time_s is not None:
-        result["train_time_s"] = round(train_time_s, 2)
-    return result
-
-
-def compare_models(results: Dict[str, Dict],
-                   sort_by: str = "MAPE") -> pd.DataFrame:
-    """
-    Build a leaderboard DataFrame from a dict of evaluate() outputs.
-
-    Parameters
-    ----------
-    results : {model_name: evaluate_dict, ...}
-    sort_by : metric column to sort by (ascending)
-
-    Returns
-    -------
-    pd.DataFrame ranked by sort_by
-    """
-    rows = list(results.values())
-    df = pd.DataFrame(rows)
-    df["Rank"] = df[sort_by].rank().astype(int)
-    df = df.sort_values(sort_by).reset_index(drop=True)
-    df.index += 1
-    return df
-
-
-def print_leaderboard(results: Dict[str, Dict]) -> None:
-    """Pretty-print the comparison table."""
-    df = compare_models(results)
-    print("\n" + "=" * 72)
-    print("  ELECTRICITY FORECASTING — MODEL LEADERBOARD")
-    print("=" * 72)
-    print(df.to_string(index=True))
-    print("=" * 72)
-    best = df.iloc[0]
-    print(f"\n  Best model: {best['model']}  |  "
-          f"MAPE: {best['MAPE']:.2f}%  |  RMSE: {best['RMSE']:.2f} MW\n")

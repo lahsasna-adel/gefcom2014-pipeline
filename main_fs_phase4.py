@@ -90,6 +90,7 @@ warnings.filterwarnings("ignore")
 
 from utils.data_loader               import load_csv
 from utils.feature_engineering_full  import build_full_feature_matrix
+from utils.family8_sdwh              import add_sdwh_features, get_sdwh_feature_names  # Family 8
 from utils.feature_selection         import (run_filter_selection,
                                               define_feature_subsets,
                                               save_selection_results)
@@ -965,6 +966,22 @@ def run_feature_selection_study(df, selected_models, n_folds=10,
     print("="*60)
     fe_df = build_full_feature_matrix(df, target="demand", verbose=True)
 
+    # ── Family 8: Same-Day-of-Week-and-Hour aggregation (Smyl & Hua, 2019) ───
+    # Adds 4 windows × 4 statistics = 16 new features capturing long-horizon
+    # weekly periodicity patterns (2–18 weeks back, same DoW and hour).
+    # Rows with insufficient history (first ~18 weeks) will have NaN values
+    # which are handled by the NaN-drop already in build_full_feature_matrix.
+    fe_df = add_sdwh_features(fe_df, demand_col="demand", verbose=True)
+    # Drop any rows that gained new NaNs from the SDWH computation
+    sdwh_cols = get_sdwh_feature_names()
+    sdwh_present = [c for c in sdwh_cols if c in fe_df.columns]
+    if sdwh_present:
+        pre_len = len(fe_df)
+        fe_df = fe_df.dropna(subset=sdwh_present).reset_index(drop=True)
+        dropped = pre_len - len(fe_df)
+        if dropped > 0:
+            print(f"[feature_eng] Family 8: dropped {dropped} rows with NaN SDWH values")
+
     # ── Step 2: Feature selection ─────────────────────────────────────────────
     print("\n" + "="*60)
     print("  STEP 2 — Ensemble filter feature selection")
@@ -1124,7 +1141,7 @@ def run_feature_selection_study(df, selected_models, n_folds=10,
     print(f"[Study] All results saved → {existing_path} ({len(results_df)} total rows)")
 
     # ── CV summary: mean ± std per model × subset ─────────────────────────────
-    metrics_cols = ["MAE", "RMSE", "MAPE", "R2"]
+    metrics_cols = ["MAE", "RMSE", "MAPE", "R2", "pcBias"]   # pcBias added (Smyl & Hua, 2019)
     summary_rows = []
 
     for model_key in results_df["model_key"].unique():
@@ -1167,10 +1184,19 @@ def _print_fs_leaderboard(cv_summary: pd.DataFrame) -> None:
     best = cv_summary.loc[cv_summary.groupby("model")["MAPE_mean"].idxmin()]
     best = best.sort_values("MAPE_mean")
     for rank_i, (_, row) in enumerate(best.iterrows(), 1):
+        # pcBias: show sign explicitly, flag over/under
+        pc_bias = row.get("pcBias_mean", float("nan"))
+        if not np.isnan(pc_bias):
+            bias_sign  = "+" if pc_bias >= 0 else ""
+            bias_label = "over" if pc_bias > 0.5 else ("under" if pc_bias < -0.5 else "unbiased")
+            bias_str   = f"pcBias: {bias_sign}{pc_bias:.2f}% ({bias_label})"
+        else:
+            bias_str = ""
         print(f"  #{rank_i:<3} {row['model'].upper():<14} "
               f"best subset: {row['subset']:<14} "
               f"({int(row['n_features'])} features) | "
-              f"MAPE: {row['MAPE_mean']:.3f}% ± {row['MAPE_std']:.3f}%")
+              f"MAPE: {row['MAPE_mean']:.3f}% ± {row['MAPE_std']:.3f}%"
+              + (f"  |  {bias_str}" if bias_str else ""))
     print(f"{'='*70}")
 
 
